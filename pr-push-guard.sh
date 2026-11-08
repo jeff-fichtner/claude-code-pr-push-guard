@@ -26,6 +26,12 @@
 #   hooks.PostToolUse matcher "Bash" -> pr-push-guard.sh post
 # Needs bash, git and jq; post mode also needs gh, signed in.
 
+# Without jq no command can be read, and a guard that reads nothing lets every push through.
+# Exit 2 blocks the tool call and shows this message, so a missing jq is found at once.
+command -v jq >/dev/null 2>&1 || { echo "pr-push-guard: jq is required and was not found on PATH" >&2; exit 2; }
+
+# Unset is allowed: no owner is presumed, so every unrecorded repo asks. That is noisy, never
+# silent, so a missing owner list cannot let a review-costing push through unasked.
 own_owners=$(tr '[:upper:]' '[:lower:]' <<<"${PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS:-}")
 
 mode=${1:-pre}
@@ -91,7 +97,7 @@ if [ "$mode" = post ]; then
           | first | .created_at // empty')
       if [ -n "$hit" ]; then
         if [ -e "$local_md" ]; then
-          sed -i.bak -E 's/^(.*[Aa]uto-review on push:[[:space:]]*[*_]*)[Nn][Oo]([^A-Za-z]|$)/\1yes\2/' "$local_md" && rm -f "$local_md.bak"
+          sed -i.bak -E 's/^(.*[Aa][Uu][Tt][Oo]-[Rr][Ee][Vv][Ii][Ee][Ww] [Oo][Nn] [Pp][Uu][Ss][Hh]:[[:space:]]*[*_]*)[Nn][Oo]([^A-Za-z]|$)/\1yes\2/' "$local_md" && rm -f "$local_md.bak"
         else
           mkdir -p "$common/info"
           grep -qxF CLAUDE.local.md "$common/info/exclude" 2>/dev/null || echo CLAUDE.local.md >> "$common/info/exclude"

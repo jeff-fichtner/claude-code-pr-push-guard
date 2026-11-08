@@ -3,7 +3,7 @@
 # CLAUDE.local.md records, pipes Bash-tool commands into the hook, and checks whether it
 # asks. Post mode runs in the foreground against a fake `gh`, so nothing touches GitHub.
 #
-# usage: hooks/pr-push-guard.test.sh   (exit 1 on any failure)
+# usage: bash pr-push-guard.test.sh   (from any directory; exit 1 on any failure)
 
 hook="$(cd "$(dirname "$0")" && pwd)/pr-push-guard.sh"
 export PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS='Example-Owner another-owner'
@@ -126,6 +126,15 @@ post "$miss" "$p_miss" 'git push origin feature'
 p_other=$(mk p_other 'https://github.com/someone-else/a.git')
 post "$hit" "$p_other" 'git push origin feature'
 [ ! -e "$p_other/CLAUDE.local.md" ]; ok 'post: an unrecorded repo under another owner is left for the agent to record' $?
+
+p_caps=$(mk p_caps 'https://github.com/example-owner/a.git' 'AUTO-REVIEW ON PUSH: no')
+post "$hit" "$p_caps" 'git push origin feature'
+grep -qx 'AUTO-REVIEW ON PUSH: yes' "$p_caps/CLAUDE.local.md"; ok 'post: a record in any capitals is flipped in place' $?
+[ "$(grep -ic 'auto-review on push:' "$p_caps/CLAUDE.local.md")" -eq 1 ]; ok 'post: a capitalised record gets no second record' $?
+
+# No jq: blocks loudly instead of reading nothing and allowing.
+err=$(echo '{}' | PATH=/var/empty /bin/bash "$hook" 2>&1 >/dev/null); code=$?
+[ "$code" -eq 2 ] && [[ $err == *'jq is required'* ]]; ok "no jq: exit 2 with a message (got $code: $err)" $?
 
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]

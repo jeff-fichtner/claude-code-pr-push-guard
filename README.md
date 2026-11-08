@@ -51,12 +51,12 @@ line. After that the hook never asks about that repository again unless the answ
 ### Owners whose repos never auto-review
 
 If none of the repositories under some GitHub owners auto-review (personal repos without
-Copilot, for example), list those owners so their repos count as `no` without recording
-anything:
-
-```bash
-export PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS='your-github-user your-org'
-```
+Copilot, for example), list those owners in `PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS` so their repos count as `no`
+without recording anything. Set it in both hook commands, as shown under
+[Install](#install): post mode needs it as much as pre mode, because it only watches repos
+that count as `no`. A shell `export` is not enough on its own, since hooks inherit Claude
+Code's environment, and Claude Code started from the desktop app or an IDE may never have read
+your shell profile.
 
 Space-separated, case-insensitive, matched against the `origin` remote's owner on github.com.
 Unset, no owner is presumed and every unrecorded repo asks. A record in `CLAUDE.local.md`
@@ -106,13 +106,18 @@ Tested on macOS and Linux.
    }
    ```
 
-   To set the owner list for the hook alone, put it in the command:
-   `"PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS='your-github-user' /path/to/pr-push-guard.sh"`.
+   With an owner list, put it in front of **both** commands:
+
+   ```json
+   "command": "PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS='your-github-user' /path/to/pr-push-guard.sh"
+   "command": "PR_PUSH_GUARD_NO_AUTOREVIEW_OWNERS='your-github-user' /path/to/pr-push-guard.sh post"
+   ```
 
 3. Restart Claude Code, or open `/hooks` to check they are loaded.
 
-The PreToolUse hook only ever answers `ask` or stays silent; it never blocks a command
-outright, so you keep the final say.
+The PreToolUse hook answers `ask` or stays silent, so you keep the final say on every push.
+The one exception is a missing `jq`: then the hook can't read any command, so it blocks every
+Bash call with "jq is required" rather than let pushes through unchecked.
 
 ## Tests
 
